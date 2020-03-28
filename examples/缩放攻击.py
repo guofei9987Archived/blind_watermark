@@ -1,8 +1,8 @@
 from blind_watermark import att
 
-# 一次纵向裁剪打击
-att.resize_att('output/打上水印的图.png', 'output/缩放攻击.png', out_shape=(1000, 1000))
-att.resize_att('output/缩放攻击.png', 'output/缩放攻击_还原.png', out_shape=(1317, 1280))
+# 缩放攻击
+att.resize_att('output/打上水印的图.png', 'output/缩放攻击.png', out_shape=(1200, 1920))
+att.resize_att('output/缩放攻击.png', 'output/缩放攻击_还原.png', out_shape=(1200, 1920))
 
 # %%提取水印
 from blind_watermark import WaterMark
