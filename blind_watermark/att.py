@@ -86,8 +86,9 @@ def salt_pepper_att(input_filename, output_file_name, ratio=0.01):
                 output_img[i, j, :] = 255
     cv2.imwrite(output_file_name, output_img)
 
+
 def rot_att(input_filename, output_file_name):
     # 旋转攻击
     input_img = cv2.imread(input_filename)
-    output_img=np.rot90(input_img)
+    output_img = np.rot90(input_img)
     cv2.imwrite(output_file_name, output_img)
