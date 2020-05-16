@@ -40,9 +40,6 @@ bwm1.extract('output/打上水印的图.png', 'output/解出的水印.png')
 |![](https://img1.github.io/blind_watermark/打上水印的图.png)|![提取的水印](https://img1.github.io/blind_watermark/%E8%A7%A3%E5%87%BA%E7%9A%84%E6%B0%B4%E5%8D%B0.png)|
 
 
-https://github.com/img1/img1.github.io/blob/master/blind_watermark/%E5%8E%9F%E5%9B%BE.jpg
-
-
 ### 各种攻击后的效果
 
 |攻击方式|攻击后的图片|提取的水印|
