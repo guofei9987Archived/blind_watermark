@@ -15,31 +15,19 @@ class WaterMark:
         self.mod = mod
         self.mod2 = mod2
         self.wm_shape = wm_shape  # 水印的大小
-        self.dwt_deep = 1
 
     def init_block_add_index(self, img_shape):
-        # 假设原图长宽均为2的整数倍,同时假设水印为64*64,则32*32*4
+        # 要求原图长宽均为2的整数倍,同时假设水印为64*64,则32*32*4
         # 分块并DCT
         shape0_int, shape1_int = int(img_shape[0] / self.block_shape[0]), int(img_shape[1] / self.block_shape[1])
-        if not shape0_int * shape1_int >= self.wm_shape[0] * self.wm_shape[1]:
+        if self.wm_shape[0] * self.wm_shape[1]>shape0_int * shape1_int:
             print("水印的大小超过图片的容量")
-        self.part_shape = (shape0_int * self.block_shape[0], shape1_int * (self.block_shape[1]))
+        self.part_shape = (shape0_int * self.block_shape[0], shape1_int * self.block_shape[1])
         self.block_add_index0, self.block_add_index1 = np.meshgrid(np.arange(shape0_int), np.arange(shape1_int))
         self.block_add_index0, self.block_add_index1 = self.block_add_index0.flatten(), self.block_add_index1.flatten()
         self.length = self.block_add_index0.size
         # 验证没有意义,但是我不验证不舒服斯基
-        assert self.block_add_index0.size == self.block_add_index1.size
-
-    def normalize_pic(self, img_array):
-        # 如果不是偶数，那么补0
-        img_shape = img_array.shape
-        if not img_shape[0] % 2 == 0:
-            img_array = np.concatenate((img_array, np.zeros((1, img_shape[1], 3))),
-                                       axis=0)
-        if not img_shape[1] % 2 == 0:
-            img_array = np.concatenate((img_array, np.zeros((img_shape[0], 1, 3))),
-                                       axis=1)
-        return img_array
+        # assert self.block_add_index0.size == self.block_add_index1.size
 
     def read_ori_img(self, filename):
         self.ori_img = cv2.imread(filename).astype(np.float32)
@@ -47,13 +35,16 @@ class WaterMark:
         self.ori_img_shape = self.ori_img.shape[:2]
         self.ori_img_YUV = cv2.cvtColor(self.ori_img, cv2.COLOR_BGR2YUV)
 
-        # 如果不是偶数，那么补0
-        self.ori_img_YUV = self.normalize_pic(self.ori_img_YUV)
+        # 如果不是偶数，那么补上白边
+        self.ori_img_YUV = cv2.copyMakeBorder(self.ori_img_YUV,
+                                              0, self.ori_img_YUV.shape[0] % 2, 0, self.ori_img_YUV.shape[1] % 2,
+                                              cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
         self.ha_Y, self.coeffs_Y = dwt2(self.ori_img_YUV[:, :, 0], 'haar')
         self.ha_U, self.coeffs_U = dwt2(self.ori_img_YUV[:, :, 1], 'haar')
         self.ha_V, self.coeffs_V = dwt2(self.ori_img_YUV[:, :, 2], 'haar')
 
+        # 转换成4维分块
         self.ha_block_shape = (
             int(self.ha_Y.shape[0] / self.block_shape[0]), int(self.ha_Y.shape[1] / self.block_shape[1]),
             self.block_shape[0], self.block_shape[1])
@@ -94,7 +85,6 @@ class WaterMark:
             max_s = s[1]
             s[1] = (max_s - max_s % self.mod2 + 3 / 4 * self.mod2) if wm_1 >= 128 else (
                     max_s - max_s % self.mod2 + 1 / 4 * self.mod2)
-        # s[1] = (max_s-max_s%self.mod2+3/4*self.mod2) if wm_1<128 else (max_s-max_s%self.mod2+1/4*self.mod2)
 
         block_dct_shuffled = np.dot(U, np.dot(np.diag(s), V))
 
@@ -139,11 +129,11 @@ class WaterMark:
 
         # 逆变换回去
         (cH, cV, cD) = self.coeffs_Y
-        embed_ha_Y = idwt2((embed_ha_Y.copy(), (cH, cV, cD)), "haar")  # 其idwt得到父级的ha
+        embed_ha_Y = idwt2((embed_ha_Y.copy(), (cH, cV, cD)), "haar")
         (cH, cV, cD) = self.coeffs_U
-        embed_ha_U = idwt2((embed_ha_U.copy(), (cH, cV, cD)), "haar")  # 其idwt得到父级的ha
+        embed_ha_U = idwt2((embed_ha_U.copy(), (cH, cV, cD)), "haar")
         (cH, cV, cD) = self.coeffs_V
-        embed_ha_V = idwt2((embed_ha_V.copy(), (cH, cV, cD)), "haar")  # 其idwt得到父级的ha
+        embed_ha_V = idwt2((embed_ha_V.copy(), (cH, cV, cD)), "haar")
 
         # 合并3通道
         embed_img_YUV = np.zeros(self.ori_img_YUV.shape, dtype=np.float32)
@@ -192,10 +182,9 @@ class WaterMark:
         embed_img = cv2.imread(filename).astype(np.float32)
         embed_img_YUV = cv2.cvtColor(embed_img, cv2.COLOR_BGR2YUV)
 
-        if not embed_img_YUV.shape[0] % 2 == 0:
-            embed_img_YUV = np.concatenate((embed_img_YUV, np.zeros((1, embed_img_YUV.shape[1], 3))), axis=0)
-        if not embed_img_YUV.shape[1] % 2 == 0:
-            embed_img_YUV = np.concatenate((embed_img_YUV, np.zeros((embed_img_YUV.shape[0], 1, 3))), axis=1)
+        embed_img_YUV = cv2.copyMakeBorder(embed_img_YUV,
+                                           0, embed_img_YUV.shape[0] % 2, 0, embed_img_YUV.shape[1] % 2,
+                                           cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
         embed_img_Y = embed_img_YUV[:, :, 0]
         embed_img_U = embed_img_YUV[:, :, 1]
@@ -207,15 +196,7 @@ class WaterMark:
         ha_U = coeffs_U[0]
         ha_V = coeffs_V[0]
 
-        # 初始化块索引数组
-        try:
-            if self.ha_Y.shape == ha_Y.shape:
-                self.init_block_add_index(ha_Y.shape)
-            else:
-                print('你现在要解水印的图片与之前读取的原图的形状不同,这是不被允许的')
-        except:
-            self.init_block_add_index(ha_Y.shape)
-
+        self.init_block_add_index(ha_Y.shape)
         ha_block_shape = (
             int(ha_Y.shape[0] / self.block_shape[0]), int(ha_Y.shape[1] / self.block_shape[1]), self.block_shape[0],
             self.block_shape[1])
@@ -227,9 +208,9 @@ class WaterMark:
         ha_V_block = np.lib.stride_tricks.as_strided(ha_V.copy(), ha_block_shape, strides)
 
         extract_wm = np.array([])
-        extract_wm_Y = np.array([])
-        extract_wm_U = np.array([])
-        extract_wm_V = np.array([])
+        # extract_wm_Y = np.array([])
+        # extract_wm_U = np.array([])
+        # extract_wm_V = np.array([])
         self.random_dct = np.random.RandomState(self.random_seed_dct)
 
         index = np.arange(self.block_shape[0] * self.block_shape[1])
@@ -243,32 +224,26 @@ class WaterMark:
             # else情况是对循环嵌入的水印的提取
             if i < self.wm_shape[0] * self.wm_shape[1]:
                 extract_wm = np.append(extract_wm, wm)
-                extract_wm_Y = np.append(extract_wm_Y, wm_Y)
-                extract_wm_U = np.append(extract_wm_U, wm_U)
-                extract_wm_V = np.append(extract_wm_V, wm_V)
+                # extract_wm_Y = np.append(extract_wm_Y, wm_Y)
+                # extract_wm_U = np.append(extract_wm_U, wm_U)
+                # extract_wm_V = np.append(extract_wm_V, wm_V)
             else:
                 times = int(i / (self.wm_shape[0] * self.wm_shape[1]))
                 ii = i % (self.wm_shape[0] * self.wm_shape[1])
                 extract_wm[ii] = (extract_wm[ii] * times + wm) / (times + 1)
-                extract_wm_Y[ii] = (extract_wm_Y[ii] * times + wm_Y) / (times + 1)
-                extract_wm_U[ii] = (extract_wm_U[ii] * times + wm_U) / (times + 1)
-                extract_wm_V[ii] = (extract_wm_V[ii] * times + wm_V) / (times + 1)
+                # extract_wm_Y[ii] = (extract_wm_Y[ii] * times + wm_Y) / (times + 1)
+                # extract_wm_U[ii] = (extract_wm_U[ii] * times + wm_U) / (times + 1)
+                # extract_wm_V[ii] = (extract_wm_V[ii] * times + wm_V) / (times + 1)
 
         wm_index = np.arange(extract_wm.size)
         self.random_wm = np.random.RandomState(self.random_seed_wm)
         self.random_wm.shuffle(wm_index)
         extract_wm[wm_index] = extract_wm.copy()
-        extract_wm_Y[wm_index] = extract_wm_Y.copy()
-        extract_wm_U[wm_index] = extract_wm_U.copy()
-        extract_wm_V[wm_index] = extract_wm_V.copy()
+        # extract_wm_Y[wm_index] = extract_wm_Y.copy()
+        # extract_wm_U[wm_index] = extract_wm_U.copy()
+        # extract_wm_V[wm_index] = extract_wm_V.copy()
         cv2.imwrite(out_wm_name, extract_wm.reshape(self.wm_shape[0], self.wm_shape[1]))
-
-        path, file_name = os.path.split(out_wm_name)
-        if not os.path.isdir(os.path.join(path, 'Y_U_V')):
-            os.mkdir(os.path.join(path, 'Y_U_V'))
-        cv2.imwrite(os.path.join(path, 'Y_U_V', 'Y' + file_name),
-                    extract_wm_Y.reshape(self.wm_shape[0], self.wm_shape[1]))
-        cv2.imwrite(os.path.join(path, 'Y_U_V', 'U' + file_name),
-                    extract_wm_U.reshape(self.wm_shape[0], self.wm_shape[1]))
-        cv2.imwrite(os.path.join(path, 'Y_U_V', 'V' + file_name),
-                    extract_wm_V.reshape(self.wm_shape[0], self.wm_shape[1]))
+        # 3个通道
+        # extract_wm_Y.reshape(self.wm_shape[0], self.wm_shape[1])
+        # extract_wm_U.reshape(self.wm_shape[0], self.wm_shape[1])
+        # extract_wm_V.reshape(self.wm_shape[0], self.wm_shape[1])
