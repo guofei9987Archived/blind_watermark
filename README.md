@@ -44,8 +44,8 @@ bwm1.extract('output/打上水印的图.png', 'output/解出的水印.png')
 
 |攻击方式|攻击后的图片|提取的水印|
 |--|--|--|
-|多遮挡<br>[多遮挡攻击.py](examples/多遮挡攻击.py)|![多遮挡](https://img1.github.io/blind_watermark/%E5%A4%9A%E9%81%AE%E6%8C%A1%E6%94%BB%E5%87%BB.png?raw=true)|![多遮挡_提取水印](https://img1.github.io/blind_watermark/%E5%A4%9A%E9%81%AE%E6%8C%A1%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
-|横向裁剪10%<br>[横向裁剪攻击.py](examples/横向裁剪攻击.py)|![横向裁剪](https://img1.github.io/blind_watermark/%E6%A8%AA%E5%90%91%E8%A3%81%E5%89%AA%E6%94%BB%E5%87%BB_%E5%A1%AB%E8%A1%A5.png?raw=true)|![](https://img1.github.io/blind_watermark/%E6%A8%AA%E5%90%91%E8%A3%81%E5%89%AA%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
+|多遮挡<br>[多遮挡攻击.py](examples/多遮挡攻击.py)|![多遮挡](https://github.com/img1/img1.github.io/blob/master/blind_watermark/%E5%A4%9A%E9%81%AE%E6%8C%A1%E6%94%BB%E5%87%BB.png?raw=true)|![多遮挡_提取水印](https://img1.github.io/blind_watermark/%E5%A4%9A%E9%81%AE%E6%8C%A1%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
+|横向裁剪50%<br>[横向裁剪攻击.py](examples/横向裁剪攻击.py)|![横向裁剪](https://github.com/img1/img1.github.io/blob/master/blind_watermark/%E6%A8%AA%E5%90%91%E8%A3%81%E5%89%AA%E6%94%BB%E5%87%BB.png?raw=true)|![](https://img1.github.io/blind_watermark/%E6%A8%AA%E5%90%91%E8%A3%81%E5%89%AA%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
 |纵向裁剪10%<br>[纵向裁剪攻击.py](examples/纵向裁剪攻击.py)|![纵向裁剪](https://img1.github.io/blind_watermark/%E7%BA%B5%E5%90%91%E8%A3%81%E5%89%AA%E6%89%93%E5%87%BB_%E5%A1%AB%E8%A1%A5.png?raw=true)|![纵向裁剪](https://img1.github.io/blind_watermark/%E7%BA%B5%E5%90%91%E8%A3%81%E5%89%AA%E6%89%93%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
 |缩放攻击（1200X1920->600X800）<br>[缩放攻击.py](examples/缩放攻击.py)|![](https://img1.github.io/blind_watermark/%E7%BC%A9%E6%94%BE%E6%94%BB%E5%87%BB.png?raw=true)|![](https://img1.github.io/blind_watermark/%E7%BC%A9%E6%94%BE%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
 |椒盐攻击<br>[椒盐击.py](examples/椒盐.py)|![](https://img1.github.io/blind_watermark/%E6%A4%92%E7%9B%90%E6%94%BB%E5%87%BB.png?raw=true)|![](https://img1.github.io/blind_watermark/%E6%A4%92%E7%9B%90%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
@@ -60,3 +60,15 @@ bwm1.extract('output/打上水印的图.png', 'output/解出的水印.png')
 - 加白色边框攻击：攻击时增加5个纯白像素，还原时用resize，效果很差。
 - 裁剪图像中的一部分，然后把这部分放大。无法还原。正确的做法是使用循环填充
 - 旋转攻击：还没做 -->
+
+
+
+-------------
+
+几种隐写术比较：
+
+|方法|示例|埋入信息量|是否有损|鲁棒性|隐蔽性|
+|--|--|--|--|--|--|
+|隐写在频域上||少|有损|很强，抗各种攻击。|很强
+|隐写在空域上||中|无损|弱|强|
+|图种|`copy /b xx.jpg+xx.rar xx.jpg`|理论上无上限|无损|弱|几乎无，像素和占磁盘空间不匹配、扫描内容都可以发现|
