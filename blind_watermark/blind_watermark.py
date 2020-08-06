@@ -17,48 +17,81 @@ class WaterMark:
         self.wm_shape = wm_shape  # 水印的大小
 
     def init_block_add_index(self, img_shape):
-        # 要求原图长宽均为2的整数倍,同时假设水印为64*64,则32*32*4
-        # 分块并DCT
-        shape0_int, shape1_int = int(img_shape[0] / self.block_shape[0]), int(img_shape[1] / self.block_shape[1])
-        if self.wm_shape[0] * self.wm_shape[1]>shape0_int * shape1_int:
+        # 假设频阈shape为64*64,则分块为32*32*4
+        # 四维分块后的前2个维度：
+        shape0_int, shape1_int = self.ha_block_shape[0], self.ha_block_shape[1]
+        if self.wm_shape[0] * self.wm_shape[1] > shape0_int * shape1_int:
             print("水印的大小超过图片的容量")
+        # self.part_shape 是取整后的ha二维大小,600*960，用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = (shape0_int * self.block_shape[0], shape1_int * self.block_shape[1])
         self.block_add_index0, self.block_add_index1 = np.meshgrid(np.arange(shape0_int), np.arange(shape1_int))
         self.block_add_index0, self.block_add_index1 = self.block_add_index0.flatten(), self.block_add_index1.flatten()
         self.length = self.block_add_index0.size
-        # 验证没有意义,但是我不验证不舒服斯基
-        # assert self.block_add_index0.size == self.block_add_index1.size
 
-    def read_ori_img(self, filename):
-        self.ori_img = cv2.imread(filename).astype(np.float32)
+    def read_img(self,filename):
+        self.img = cv2.imread(filename).astype(np.float32)
 
-        self.ori_img_shape = self.ori_img.shape[:2]
-        self.ori_img_YUV = cv2.cvtColor(self.ori_img, cv2.COLOR_BGR2YUV)
+        self.img_shape = self.img.shape[:2]
+        self.img_YUV = cv2.cvtColor(self.img, cv2.COLOR_BGR2YUV)
 
         # 如果不是偶数，那么补上白边
-        self.ori_img_YUV = cv2.copyMakeBorder(self.ori_img_YUV,
-                                              0, self.ori_img_YUV.shape[0] % 2, 0, self.ori_img_YUV.shape[1] % 2,
+        self.img_YUV = cv2.copyMakeBorder(self.img_YUV,
+                                              0, self.img_YUV.shape[0] % 2, 0, self.img_YUV.shape[1] % 2,
                                               cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
-        self.ha_Y, self.coeffs_Y = dwt2(self.ori_img_YUV[:, :, 0], 'haar')
-        self.ha_U, self.coeffs_U = dwt2(self.ori_img_YUV[:, :, 1], 'haar')
-        self.ha_V, self.coeffs_V = dwt2(self.ori_img_YUV[:, :, 2], 'haar')
+        self.ha_Y, self.coeffs_Y = dwt2(self.img_YUV[:, :, 0], 'haar')
+        self.ha_U, self.coeffs_U = dwt2(self.img_YUV[:, :, 1], 'haar')
+        self.ha_V, self.coeffs_V = dwt2(self.img_YUV[:, :, 2], 'haar')
+        self.ha_Y = self.ha_Y.astype(np.float32)
+        self.ha_U = self.ha_U.astype(np.float32)
+        self.ha_V = self.ha_V.astype(np.float32)
 
+        self.ha_shape = self.ha_Y.shape
         # 转换成4维分块
-        self.ha_block_shape = (
-            int(self.ha_Y.shape[0] / self.block_shape[0]), int(self.ha_Y.shape[1] / self.block_shape[1]),
-            self.block_shape[0], self.block_shape[1])
-        strides = self.ha_Y.itemsize * (
-            np.array([self.ha_Y.shape[1] * self.block_shape[0], self.block_shape[1], self.ha_Y.shape[1], 1]))
+        self.ha_block_shape = (self.ha_shape[0] // self.block_shape[0], self.ha_shape[1] // self.block_shape[1],
+                               self.block_shape[0], self.block_shape[1])
+
+        strides = 4 * np.array([self.ha_Y.shape[1] * self.block_shape[0], self.block_shape[1], self.ha_Y.shape[1], 1])
         self.ha_Y_block = np.lib.stride_tricks.as_strided(self.ha_Y.copy(), self.ha_block_shape, strides)
         self.ha_U_block = np.lib.stride_tricks.as_strided(self.ha_U.copy(), self.ha_block_shape, strides)
         self.ha_V_block = np.lib.stride_tricks.as_strided(self.ha_V.copy(), self.ha_block_shape, strides)
+
+    def read_ori_img(self, filename):
+        self.read_img(filename)
+
+    # def read_ori_img(self, filename):
+    #     self.ori_img = cv2.imread(filename).astype(np.float32)
+    #
+    #     self.ori_img_shape = self.ori_img.shape[:2]
+    #     self.ori_img_YUV = cv2.cvtColor(self.ori_img, cv2.COLOR_BGR2YUV)
+    #
+    #     # 如果不是偶数，那么补上白边
+    #     self.ori_img_YUV = cv2.copyMakeBorder(self.ori_img_YUV,
+    #                                           0, self.ori_img_YUV.shape[0] % 2, 0, self.ori_img_YUV.shape[1] % 2,
+    #                                           cv2.BORDER_CONSTANT, value=(0, 0, 0))
+    #
+    #     self.ha_Y, self.coeffs_Y = dwt2(self.ori_img_YUV[:, :, 0], 'haar')
+    #     self.ha_U, self.coeffs_U = dwt2(self.ori_img_YUV[:, :, 1], 'haar')
+    #     self.ha_V, self.coeffs_V = dwt2(self.ori_img_YUV[:, :, 2], 'haar')
+    #     self.ha_Y = self.ha_Y.astype(np.float32)
+    #     self.ha_U = self.ha_U.astype(np.float32)
+    #     self.ha_V = self.ha_V.astype(np.float32)
+    #
+    #     self.ha_shape = self.ha_Y.shape
+    #     # 转换成4维分块
+    #     self.ha_block_shape = (self.ha_shape[0] // self.block_shape[0], self.ha_shape[1] // self.block_shape[1],
+    #                            self.block_shape[0], self.block_shape[1])
+    #
+    #     strides = 4 * np.array([self.ha_Y.shape[1] * self.block_shape[0], self.block_shape[1], self.ha_Y.shape[1], 1])
+    #     self.ha_Y_block = np.lib.stride_tricks.as_strided(self.ha_Y.copy(), self.ha_block_shape, strides)
+    #     self.ha_U_block = np.lib.stride_tricks.as_strided(self.ha_U.copy(), self.ha_block_shape, strides)
+    #     self.ha_V_block = np.lib.stride_tricks.as_strided(self.ha_V.copy(), self.ha_block_shape, strides)
 
     def read_wm(self, filename):
         self.wm = cv2.imread(filename)[:, :, 0]
         self.wm_shape = self.wm.shape[:2]
 
-        # 初始化块索引数组,因为需要验证块是否足够存储水印信息,所以才放在这儿
+        # 验证是否足够存储水印信息，并且初始化块索引数组
         self.init_block_add_index(self.ha_Y.shape)
 
         self.wm_flatten = self.wm.flatten()
@@ -128,21 +161,21 @@ class WaterMark:
         embed_ha_V[:self.part_shape[0], :self.part_shape[1]] = embed_ha_V_part
 
         # 逆变换回去
-        (cH, cV, cD) = self.coeffs_Y
-        embed_ha_Y = idwt2((embed_ha_Y.copy(), (cH, cV, cD)), "haar")
-        (cH, cV, cD) = self.coeffs_U
-        embed_ha_U = idwt2((embed_ha_U.copy(), (cH, cV, cD)), "haar")
-        (cH, cV, cD) = self.coeffs_V
-        embed_ha_V = idwt2((embed_ha_V.copy(), (cH, cV, cD)), "haar")
+        # (cH, cV, cD) = self.coeffs_Y
+        embed_ha_Y = idwt2((embed_ha_Y.copy(), self.coeffs_Y), "haar")
+        # (cH, cV, cD) = self.coeffs_U
+        embed_ha_U = idwt2((embed_ha_U.copy(), self.coeffs_U), "haar")
+        # (cH, cV, cD) = self.coeffs_V
+        embed_ha_V = idwt2((embed_ha_V.copy(), self.coeffs_V), "haar")
 
         # 合并3通道
-        embed_img_YUV = np.zeros(self.ori_img_YUV.shape, dtype=np.float32)
+        embed_img_YUV = np.zeros(self.img_YUV.shape, dtype=np.float32)
         embed_img_YUV[:, :, 0] = embed_ha_Y
         embed_img_YUV[:, :, 1] = embed_ha_U
         embed_img_YUV[:, :, 2] = embed_ha_V
 
-        # 如果之前因为不是2的整数
-        embed_img_YUV = embed_img_YUV[:self.ori_img_shape[0], :self.ori_img_shape[1]]
+        # 如果之前因为不是2的整数，增加了白边，这里去除掉
+        embed_img_YUV = embed_img_YUV[:self.img_shape[0], :self.img_shape[1]]
         embed_img = cv2.cvtColor(embed_img_YUV, cv2.COLOR_YUV2BGR)
 
         embed_img[embed_img > 255] = 255
@@ -152,7 +185,7 @@ class WaterMark:
 
         print('隐水印嵌入成功，保存到文件 ', filename)
         for i in range(3):
-            diff, _ = pearsonr(self.ori_img[:, :, i].flatten(), embed_img[:, :, i].flatten())
+            diff, _ = pearsonr(self.img[:, :, i].flatten(), embed_img[:, :, i].flatten())
             print('通道{}的相似度是{}'.format(i, diff))
         print('(相似度越接近1越好)')
 
@@ -186,22 +219,20 @@ class WaterMark:
                                            0, embed_img_YUV.shape[0] % 2, 0, embed_img_YUV.shape[1] % 2,
                                            cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
-        embed_img_Y = embed_img_YUV[:, :, 0]
-        embed_img_U = embed_img_YUV[:, :, 1]
-        embed_img_V = embed_img_YUV[:, :, 2]
-        coeffs_Y = dwt2(embed_img_Y, 'haar')
-        coeffs_U = dwt2(embed_img_U, 'haar')
-        coeffs_V = dwt2(embed_img_V, 'haar')
-        ha_Y = coeffs_Y[0]
-        ha_U = coeffs_U[0]
-        ha_V = coeffs_V[0]
+        ha_Y, _ = dwt2(embed_img_YUV[:, :, 0], 'haar')
+        ha_U, _ = dwt2(embed_img_YUV[:, :, 1], 'haar')
+        ha_V, _ = dwt2(embed_img_YUV[:, :, 2], 'haar')
+        ha_Y = ha_Y.astype(np.float32)
+        ha_U = ha_U.astype(np.float32)
+        ha_V = ha_V.astype(np.float32)
 
+        self.ha_shape = ha_Y.shape
+        ha_block_shape = (self.ha_shape[0] // self.block_shape[0], self.ha_shape[1] // self.block_shape[1],
+                          self.block_shape[0], self.block_shape[1])
+        self.ha_block_shape = ha_block_shape
         self.init_block_add_index(ha_Y.shape)
-        ha_block_shape = (
-            int(ha_Y.shape[0] / self.block_shape[0]), int(ha_Y.shape[1] / self.block_shape[1]), self.block_shape[0],
-            self.block_shape[1])
-        strides = ha_Y.itemsize * (
-            np.array([ha_Y.shape[1] * self.block_shape[0], self.block_shape[1], ha_Y.shape[1], 1]))
+
+        strides = 4 * np.array([self.ha_shape[1] * self.block_shape[0], self.block_shape[1], self.ha_shape[1], 1])
 
         ha_Y_block = np.lib.stride_tricks.as_strided(ha_Y.copy(), ha_block_shape, strides)
         ha_U_block = np.lib.stride_tricks.as_strided(ha_U.copy(), ha_block_shape, strides)
