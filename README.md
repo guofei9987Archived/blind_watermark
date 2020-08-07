@@ -51,6 +51,7 @@ bwm1.extract('output/打上水印的图.png', 'output/解出的水印.png')
 |椒盐攻击<br>[椒盐击.py](examples/椒盐.py)|![](https://img1.github.io/blind_watermark/%E6%A4%92%E7%9B%90%E6%94%BB%E5%87%BB.png?raw=true)|![](https://img1.github.io/blind_watermark/%E6%A4%92%E7%9B%90%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
 |亮度提高10%<br>[亮度调高攻击.py](examples/亮度调高攻击.py)|![](https://img1.github.io/blind_watermark/%E4%BA%AE%E5%BA%A6%E8%B0%83%E9%AB%98%E6%94%BB%E5%87%BB.png?raw=true)|![](https://img1.github.io/blind_watermark/%E4%BA%AE%E5%BA%A6%E8%B0%83%E9%AB%98%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
 |亮度调低10%<br>[亮度调暗攻击.py](examples/亮度调暗攻击.py)|![](https://img1.github.io/blind_watermark/%E4%BA%AE%E5%BA%A6%E8%B0%83%E4%BD%8E%E6%94%BB%E5%87%BB.png?raw=true)|![](https://img1.github.io/blind_watermark/%E4%BA%AE%E5%BA%A6%E8%B0%83%E4%BD%8E%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
+|旋转攻击45度<br>[旋转攻击.py](examples/旋转攻击.py)|![](https://github.com/img1/img1.github.io/blob/master/blind_watermark/%E6%97%8B%E8%BD%AC%E6%94%BB%E5%87%BB.png?raw=true)|![](https://github.com/img1/img1.github.io/blob/master/blind_watermark/%E6%97%8B%E8%BD%AC%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
 
 
 <!-- ### 未能抵抗的攻击
