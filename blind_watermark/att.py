@@ -87,8 +87,10 @@ def salt_pepper_att(input_filename, output_file_name, ratio=0.01):
     cv2.imwrite(output_file_name, output_img)
 
 
-def rot_att(input_filename, output_file_name):
+def rot_att(input_filename, output_file_name, angle=45):
     # 旋转攻击
     input_img = cv2.imread(input_filename)
-    output_img = np.rot90(input_img)
+    rows, cols, _ = input_img.shape
+    M = cv2.getRotationMatrix2D(center=(cols / 2, rows / 2), angle=angle, scale=1)
+    output_img = cv2.warpAffine(input_img, M, (cols, rows))
     cv2.imwrite(output_file_name, output_img)
