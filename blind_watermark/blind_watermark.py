@@ -56,22 +56,29 @@ class WaterMark:
     def read_ori_img(self, filename):
         self.read_img(filename)
 
-    def read_wm(self, filename):
+    def read_img_wm(self, filename):
+        # 水印是图片格式
         self.wm = cv2.imread(filename)[:, :, 0]
         self.wm_shape = self.wm.shape[:2]
 
-        # 加密信息只用bit类抛弃灰度级别
-        self.wm_flatten = self.wm.flatten() > 128
+        # 加密信息只用bit类，抛弃灰度级别
+        self.wm_bit = self.wm.flatten() > 128
 
-        # 水印加密
+    def read_wm(self, wm_content, mode='img'):
+        if mode == 'img':
+            self.read_img_wm(filename=wm_content)
+        else:
+            self.wm_bit = np.array(wm_content)
+        self.wm_size = self.wm_bit.size
+        # 水印加密:
         self.random_wm = np.random.RandomState(self.random_seed_wm)
-        self.random_wm.shuffle(self.wm_flatten)
+        self.random_wm.shuffle(self.wm_bit)
 
     def block_add_wm(self, block, index, i):
 
-        i = i % (self.wm_shape[0] * self.wm_shape[1])
+        i = i % self.wm_size
 
-        wm_1 = self.wm_flatten[i]
+        wm_1 = self.wm_bit[i]
         block_dct = cv2.dct(block)
 
         # 加密（打乱顺序）
@@ -93,8 +100,8 @@ class WaterMark:
         return cv2.idct(block_dct)
 
     def embed(self, filename):
-        print('最多可嵌入{}比特信息'.format(self.ha_block_shape[0]*self.ha_block_shape[1]))
         self.init_block_index()
+        print('最多可嵌入{}kb信息，水印含{}kb信息'.format(self.length / 1000, self.wm_bit.size / 1000))
 
         embed_ha_Y_block = self.ha_Y_block.copy()
         embed_ha_U_block = self.ha_U_block.copy()
@@ -168,6 +175,7 @@ class WaterMark:
         if not self.wm_shape:
             print("水印的形状未设定")
             return 0
+        self.wm_size = np.prod(self.wm_shape)
 
         self.read_img(filename)
         self.init_block_index()
@@ -184,11 +192,10 @@ class WaterMark:
             wm = round((wm_Y + wm_U + wm_V) / 3)
 
             # else情况是对循环嵌入的水印的提取
-            if i < self.wm_shape[0] * self.wm_shape[1]:
+            if i < self.wm_size:
                 extract_wm = np.append(extract_wm, wm)
             else:
-                times = i // (self.wm_shape[0] * self.wm_shape[1])
-                ii = i % (self.wm_shape[0] * self.wm_shape[1])
+                times, ii = i // self.wm_size, i % self.wm_size
                 extract_wm[ii] = (extract_wm[ii] * times + wm) / (times + 1)
 
         wm_index = np.arange(extract_wm.size)
