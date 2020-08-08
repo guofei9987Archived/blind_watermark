@@ -33,7 +33,7 @@ bwm1.extract('output/打上水印的图.png', 'output/解出的水印.png')
 
 |原图|水印|
 |--|--|
-|![原图](https://img1.github.io/blind_watermark/原图.jpg)|![水印](https://img1.github.io/blind_watermark/水印.png)|
+|<img src="https://img1.github.io/blind_watermark/原图.jpg" width = "200" >|![水印](https://img1.github.io/blind_watermark/水印.png)|
 
 |嵌入后的图|提取的水印|
 |--|--|
