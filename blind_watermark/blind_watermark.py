@@ -17,7 +17,7 @@ class WaterMark:
     def init_block_index(self):
         # 四维分块后的前2个维度：
         shape0_int, shape1_int = self.ha_block_shape[0], self.ha_block_shape[1]
-        if self.wm_shape[0] * self.wm_shape[1] > shape0_int * shape1_int:
+        if self.wm_size > shape0_int * shape1_int:
             print("水印的大小超过图片的容量")
         # self.part_shape 是取整后的ha二维大小,600*960，用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = (shape0_int * self.block_shape[0], shape1_int * self.block_shape[1])
@@ -171,7 +171,7 @@ class WaterMark:
             wm = wm_1
         return wm
 
-    def extract(self, filename, out_wm_name):
+    def extract(self, filename, out_wm_name=None, mode='img'):
         if not self.wm_shape:
             print("水印的形状未设定")
             return 0
@@ -198,10 +198,13 @@ class WaterMark:
                 times, ii = i // self.wm_size, i % self.wm_size
                 extract_wm[ii] = (extract_wm[ii] * times + wm) / (times + 1)
 
+        # 水印提取完成后，解密
         wm_index = np.arange(extract_wm.size)
         self.random_wm = np.random.RandomState(self.random_seed_wm)
         self.random_wm.shuffle(wm_index)
         extract_wm[wm_index] = extract_wm.copy()
-        extract_wm *= 255  # 比特类转255，模糊的中间值不做处理直接保留
 
-        cv2.imwrite(out_wm_name, extract_wm.reshape(self.wm_shape[0], self.wm_shape[1]))
+        if mode == 'img':
+            cv2.imwrite(out_wm_name, 255 * extract_wm.reshape(self.wm_shape[0], self.wm_shape[1]))
+        else:
+            return extract_wm
