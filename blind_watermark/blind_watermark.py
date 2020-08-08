@@ -14,16 +14,16 @@ class WaterMark:
         self.mod2 = mod2
         self.wm_shape = wm_shape  # 水印的大小
 
-    def init_block_add_index(self):
+    def init_block_index(self):
         # 四维分块后的前2个维度：
         shape0_int, shape1_int = self.ha_block_shape[0], self.ha_block_shape[1]
         if self.wm_shape[0] * self.wm_shape[1] > shape0_int * shape1_int:
             print("水印的大小超过图片的容量")
         # self.part_shape 是取整后的ha二维大小,600*960，用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = (shape0_int * self.block_shape[0], shape1_int * self.block_shape[1])
-        self.block_add_index0, self.block_add_index1 = np.meshgrid(np.arange(shape0_int), np.arange(shape1_int))
-        self.block_add_index0, self.block_add_index1 = self.block_add_index0.flatten(), self.block_add_index1.flatten()
-        self.length = self.block_add_index0.size
+        self.block_index0, self.block_index1 = np.meshgrid(np.arange(shape0_int), np.arange(shape1_int))
+        self.block_index0, self.block_index1 = self.block_index0.flatten(), self.block_index1.flatten()
+        self.length = self.block_index0.size
 
     def read_img(self, filename):
         self.img = cv2.imread(filename).astype(np.float32)
@@ -93,7 +93,8 @@ class WaterMark:
         return cv2.idct(block_dct)
 
     def embed(self, filename):
-        self.init_block_add_index()
+        print('最多可嵌入{}比特信息'.format(self.ha_block_shape[0]*self.ha_block_shape[1]))
+        self.init_block_index()
 
         embed_ha_Y_block = self.ha_Y_block.copy()
         embed_ha_U_block = self.ha_U_block.copy()
@@ -104,12 +105,12 @@ class WaterMark:
 
         for i in range(self.length):
             self.random_dct.shuffle(index)
-            embed_ha_Y_block[self.block_add_index0[i], self.block_add_index1[i]] = self.block_add_wm(
-                embed_ha_Y_block[self.block_add_index0[i], self.block_add_index1[i]], index, i)
-            embed_ha_U_block[self.block_add_index0[i], self.block_add_index1[i]] = self.block_add_wm(
-                embed_ha_U_block[self.block_add_index0[i], self.block_add_index1[i]], index, i)
-            embed_ha_V_block[self.block_add_index0[i], self.block_add_index1[i]] = self.block_add_wm(
-                embed_ha_V_block[self.block_add_index0[i], self.block_add_index1[i]], index, i)
+            embed_ha_Y_block[self.block_index0[i], self.block_index1[i]] = self.block_add_wm(
+                embed_ha_Y_block[self.block_index0[i], self.block_index1[i]], index, i)
+            embed_ha_U_block[self.block_index0[i], self.block_index1[i]] = self.block_add_wm(
+                embed_ha_U_block[self.block_index0[i], self.block_index1[i]], index, i)
+            embed_ha_V_block[self.block_index0[i], self.block_index1[i]] = self.block_add_wm(
+                embed_ha_V_block[self.block_index0[i], self.block_index1[i]], index, i)
 
         embed_ha_Y_part = np.concatenate(np.concatenate(embed_ha_Y_block, 1), 1)
         embed_ha_U_part = np.concatenate(np.concatenate(embed_ha_U_block, 1), 1)
@@ -169,7 +170,7 @@ class WaterMark:
             return 0
 
         self.read_img(filename)
-        self.init_block_add_index()
+        self.init_block_index()
 
         extract_wm = np.array([])
         self.random_dct = np.random.RandomState(self.random_seed_dct)
@@ -177,9 +178,9 @@ class WaterMark:
         index = np.arange(self.block_shape[0] * self.block_shape[1])
         for i in range(self.length):
             self.random_dct.shuffle(index)
-            wm_Y = self.block_get_wm(self.ha_Y_block[self.block_add_index0[i], self.block_add_index1[i]], index)
-            wm_U = self.block_get_wm(self.ha_U_block[self.block_add_index0[i], self.block_add_index1[i]], index)
-            wm_V = self.block_get_wm(self.ha_V_block[self.block_add_index0[i], self.block_add_index1[i]], index)
+            wm_Y = self.block_get_wm(self.ha_Y_block[self.block_index0[i], self.block_index1[i]], index)
+            wm_U = self.block_get_wm(self.ha_U_block[self.block_index0[i], self.block_index1[i]], index)
+            wm_V = self.block_get_wm(self.ha_V_block[self.block_index0[i], self.block_index1[i]], index)
             wm = round((wm_Y + wm_U + wm_V) / 3)
 
             # else情况是对循环嵌入的水印的提取
