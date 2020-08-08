@@ -54,15 +54,41 @@ bwm1.extract('output/打上水印的图.png', 'output/解出的水印.png')
 |旋转攻击45度<br>[旋转攻击.py](examples/旋转攻击.py)|![](https://github.com/img1/img1.github.io/blob/master/blind_watermark/%E6%97%8B%E8%BD%AC%E6%94%BB%E5%87%BB.png?raw=true)|![](https://github.com/img1/img1.github.io/blob/master/blind_watermark/%E6%97%8B%E8%BD%AC%E6%94%BB%E5%87%BB_%E6%8F%90%E5%8F%96%E6%B0%B4%E5%8D%B0.png?raw=true)|
 
 
-<!-- ### 未能抵抗的攻击
+### 隐水印可以是二进制数据
+
+作为 demo， 如果要嵌入是如下长度为6的二进制数据
+```python
+wm = [True, False, True, True, True, False]
+```
+
+嵌入水印
+
+```python
+# 除了嵌入图片，也可以嵌入比特类数据
+from blind_watermark import WaterMark
+
+bwm1 = WaterMark(4399, 2333)
+
+# 读取原图
+bwm1.read_ori_img('pic/原图.jpg')
+
+# 读取水印
+bwm1.read_wm([True, False, True, True, True, False], mode='bit')
+
+# 打上盲水印
+bwm1.embed('output/打上水印的图.png')
 
 
-- 90度旋转打击：缩放还原后无法复原，但旋转回来后可以（旋转回来后就是原图）。
-- 加白色边框攻击：攻击时增加5个纯白像素，还原时用resize，效果很差。
-- 裁剪图像中的一部分，然后把这部分放大。无法还原。正确的做法是使用循环填充
-- 旋转攻击：还没做 -->
+```
 
+解水印：（注意设定水印形状 `wm_shape`）
+```python
+bwm1 = WaterMark(4399, 2333, wm_shape=6)
+wm_extract = bwm1.extract('output/打上水印的图.png', mode='bit')
+print(wm_extract)
+```
 
+输出是一个0～1之间的实数，方便用户自行卡阈值。如果水印信息量远小于图片可容纳量，就不会有偏差。
 
 -------------
 
