@@ -6,21 +6,20 @@ from scipy.stats import pearsonr
 
 class WaterMark:
     def __init__(self, password_wm=1, password_img=1, mod=36, mod2=20, wm_shape=None, block_shape=(4, 4)):
-        # mod, mod2 用于嵌入算法的除数,理论上第一个除数要大于第二个,除数越大鲁棒性越强,但输出图片的失真越大
         self.block_shape = block_shape  # 2或4
         self.password_wm, self.password_img = password_wm, password_img  # 打乱水印和打乱原图分块的随机种子
-        self.mod, self.mod2 = mod, mod2
+        self.mod, self.mod2 = mod, mod2 # 用于嵌入算法的除数,mod/mod2 越大鲁棒性越强,但输出图片的失真越大
         self.wm_shape = wm_shape  # 水印的大小
 
     def init_block_index(self):
         # 四维分块后的前2个维度：
-        shape0_int, shape1_int = self.ha_block_shape[0], self.ha_block_shape[1]
-        self.length = shape0_int * shape1_int
+        block_shape0, block_shape1 = self.ha_block_shape[0], self.ha_block_shape[1]
+        self.length = block_shape0 * block_shape1
         print('最多可嵌入{}kb信息，水印含{}kb信息'.format(self.length / 1000, self.wm_size / 1000))
         if self.wm_size > self.length: print("水印的大小超过图片的容量")
         # self.part_shape 是取整后的ha二维大小,用于嵌入时忽略右边和下面对不齐的细条部分。
-        self.part_shape = (shape0_int * self.block_shape[0], shape1_int * self.block_shape[1])
-        self.block_index0, self.block_index1 = np.meshgrid(np.arange(shape0_int), np.arange(shape1_int))
+        self.part_shape = (block_shape0 * self.block_shape[0], block_shape1 * self.block_shape[1])
+        self.block_index0, self.block_index1 = np.meshgrid(np.arange(block_shape0), np.arange(block_shape1))
         self.block_index0, self.block_index1 = self.block_index0.flatten(), self.block_index1.flatten()
 
     def read_img(self, filename):
