@@ -20,8 +20,6 @@ class WaterMark:
             print("水印的大小超过图片的容量")
         # self.part_shape 是取整后的ha二维大小,用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = (block_shape0 * self.block_shape[0], block_shape1 * self.block_shape[1])
-        self.block_index0, self.block_index1 = np.meshgrid(np.arange(block_shape0), np.arange(block_shape1))
-        self.block_index0, self.block_index1 = self.block_index0.flatten(), self.block_index1.flatten()
         self.block_index = [(i, j) for i in range(block_shape0) for j in range(block_shape1)]
 
     def read_img(self, filename):
@@ -83,11 +81,10 @@ class WaterMark:
         # 加密（打乱顺序）
         block_dct_shuffled = block_dct.flatten()[index].reshape(self.block_shape)
         U, s, V = np.linalg.svd(block_dct_shuffled)
-        s[0] = (s[0] - s[0] % self.mod + 3 / 4 * self.mod) if wm_1 else (
-                s[0] - s[0] % self.mod + 1 / 4 * self.mod)
+        s[0] = (s[0] // self.mod + 1 / 4 + 1 / 2 * wm_1) * self.mod
+
         if self.mod2:
-            s[1] = (s[1] - s[1] % self.mod2 + 3 / 4 * self.mod2) if wm_1 else (
-                    s[1] - s[1] % self.mod2 + 1 / 4 * self.mod2)
+            s[1] = (s[1] // self.mod2 + 1 / 4 + 1 / 2 * wm_1) * self.mod2
 
         block_dct_shuffled = np.dot(U, np.dot(np.diag(s), V))
 
@@ -134,10 +131,7 @@ class WaterMark:
         embed_ha_V = idwt2((embed_ha_V.copy(), self.coeffs_V), "haar")
 
         # 合并3通道
-        embed_img_YUV = np.zeros(self.img_YUV.shape, dtype=np.float32)
-        embed_img_YUV[:, :, 0] = embed_ha_Y
-        embed_img_YUV[:, :, 1] = embed_ha_U
-        embed_img_YUV[:, :, 2] = embed_ha_V
+        embed_img_YUV = np.stack([embed_ha_Y, embed_ha_U, embed_ha_V], axis=2)
 
         # 之前如果不是2的整数，增加了白边，这里去除掉
         embed_img_YUV = embed_img_YUV[:self.img_shape[0], :self.img_shape[1]]
