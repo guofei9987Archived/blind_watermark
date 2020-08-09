@@ -44,7 +44,6 @@ class WaterMark:
         # 转换成4维分块
         self.ha_block_shape = (self.ha_shape[0] // self.block_shape[0], self.ha_shape[1] // self.block_shape[1],
                                self.block_shape[0], self.block_shape[1])
-
         strides = 4 * np.array([self.ha_shape[1] * self.block_shape[0], self.block_shape[1], self.ha_shape[1], 1])
         self.ha_Y_block = np.lib.stride_tricks.as_strided(self.ha_Y.copy(), self.ha_block_shape, strides)
         self.ha_U_block = np.lib.stride_tricks.as_strided(self.ha_U.copy(), self.ha_block_shape, strides)
@@ -54,7 +53,7 @@ class WaterMark:
         self.read_img(filename)
 
     def read_img_wm(self, filename):
-        # 水印是图片格式
+        # 读入图片格式的水印，并转为一维 bit 格式
         self.wm = cv2.imread(filename)[:, :, 0]
         self.wm_shape = self.wm.shape[:2]
 
@@ -82,7 +81,6 @@ class WaterMark:
         block_dct_shuffled = block_dct.flatten()[index].reshape(self.block_shape)
         U, s, V = np.linalg.svd(block_dct_shuffled)
         s[0] = (s[0] // self.mod + 1 / 4 + 1 / 2 * wm_1) * self.mod
-
         if self.mod2:
             s[1] = (s[1] // self.mod2 + 1 / 4 + 1 / 2 * wm_1) * self.mod2
 
@@ -183,7 +181,6 @@ class WaterMark:
             wm_V = self.block_get_wm(self.ha_V_block[self.block_index[i]], index)
             wm = round((wm_Y + wm_U + wm_V) / 3)
 
-            # else情况是对循环嵌入的水印的提取
             if i < self.wm_size:
                 extract_wm = np.append(extract_wm, wm)
             else:
