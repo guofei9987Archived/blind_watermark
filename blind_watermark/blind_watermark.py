@@ -16,7 +16,7 @@ class WaterMark:
         # 四维分块后的前2个维度：
         shape0_int, shape1_int = self.ha_block_shape[0], self.ha_block_shape[1]
         self.length = shape0_int * shape1_int
-        print('最多可嵌入{}kb信息，水印含{}kb信息'.format(self.length / 1000, self.wm_bit.size / 1000))
+        print('最多可嵌入{}kb信息，水印含{}kb信息'.format(self.length / 1000, self.wm_size / 1000))
         if self.wm_size > self.length: print("水印的大小超过图片的容量")
         # self.part_shape 是取整后的ha二维大小,用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = (shape0_int * self.block_shape[0], shape1_int * self.block_shape[1])
