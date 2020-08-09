@@ -5,25 +5,23 @@ from scipy.stats import pearsonr
 
 
 class WaterMark:
-    def __init__(self, random_seed_wm=1, random_seed_dct=1, mod=36, mod2=20, wm_shape=None, block_shape=(4, 4)):
+    def __init__(self, password_wm=1, password_img=1, mod=36, mod2=20, wm_shape=None, block_shape=(4, 4)):
         # mod, mod2 用于嵌入算法的除数,理论上第一个除数要大于第二个,除数越大鲁棒性越强,但输出图片的失真越大
-        self.block_shape = block_shape  # 2^n
-        self.random_seed_wm = random_seed_wm  # 随机种子
-        self.random_seed_dct = random_seed_dct  # 随机种子
-        self.mod = mod
-        self.mod2 = mod2
+        self.block_shape = block_shape  # 2或4
+        self.password_wm, self.password_img = password_wm, password_img  # 打乱水印和打乱原图分块的随机种子
+        self.mod, self.mod2 = mod, mod2
         self.wm_shape = wm_shape  # 水印的大小
 
     def init_block_index(self):
         # 四维分块后的前2个维度：
         shape0_int, shape1_int = self.ha_block_shape[0], self.ha_block_shape[1]
-        if self.wm_size > shape0_int * shape1_int:
-            print("水印的大小超过图片的容量")
-        # self.part_shape 是取整后的ha二维大小,600*960，用于嵌入时忽略右边和下面对不齐的细条部分。
+        self.length = shape0_int * shape1_int
+        print('最多可嵌入{}kb信息，水印含{}kb信息'.format(self.length / 1000, self.wm_bit.size / 1000))
+        if self.wm_size > self.length: print("水印的大小超过图片的容量")
+        # self.part_shape 是取整后的ha二维大小,用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = (shape0_int * self.block_shape[0], shape1_int * self.block_shape[1])
         self.block_index0, self.block_index1 = np.meshgrid(np.arange(shape0_int), np.arange(shape1_int))
         self.block_index0, self.block_index1 = self.block_index0.flatten(), self.block_index1.flatten()
-        self.length = self.block_index0.size
 
     def read_img(self, filename):
         self.img = cv2.imread(filename).astype(np.float32)
@@ -71,7 +69,7 @@ class WaterMark:
             self.wm_bit = np.array(wm_content)
         self.wm_size = self.wm_bit.size
         # 水印加密:
-        self.random_wm = np.random.RandomState(self.random_seed_wm)
+        self.random_wm = np.random.RandomState(self.password_wm)
         self.random_wm.shuffle(self.wm_bit)
 
     def block_add_wm(self, block, index, i):
@@ -101,13 +99,12 @@ class WaterMark:
 
     def embed(self, filename):
         self.init_block_index()
-        print('最多可嵌入{}kb信息，水印含{}kb信息'.format(self.length / 1000, self.wm_bit.size / 1000))
 
         embed_ha_Y_block = self.ha_Y_block.copy()
         embed_ha_U_block = self.ha_U_block.copy()
         embed_ha_V_block = self.ha_V_block.copy()
 
-        self.random_dct = np.random.RandomState(self.random_seed_dct)
+        self.random_dct = np.random.RandomState(self.password_img)
         index = np.arange(self.block_shape[0] * self.block_shape[1])
 
         for i in range(self.length):
@@ -181,7 +178,7 @@ class WaterMark:
         self.init_block_index()
 
         extract_wm = np.array([])
-        self.random_dct = np.random.RandomState(self.random_seed_dct)
+        self.random_dct = np.random.RandomState(self.password_img)
 
         index = np.arange(self.block_shape[0] * self.block_shape[1])
         for i in range(self.length):
@@ -200,7 +197,7 @@ class WaterMark:
 
         # 水印提取完成后，解密
         wm_index = np.arange(extract_wm.size)
-        self.random_wm = np.random.RandomState(self.random_seed_wm)
+        self.random_wm = np.random.RandomState(self.password_wm)
         self.random_wm.shuffle(wm_index)
         extract_wm[wm_index] = extract_wm.copy()
 
