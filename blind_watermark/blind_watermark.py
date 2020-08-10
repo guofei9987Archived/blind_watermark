@@ -17,10 +17,12 @@ class WaterMark:
         self.ca_block = [np.array([])] * 3  # 每个 channel 存一个四维 array，代表四维分块后的结果
         self.ca_part = [np.array([])] * 3  # 四维分块后，有时因不整除而少一部分，self.ca_part 是少这一部分的 self.ca
 
+        self.wm_size, self.block_num = 0, 0  # 水印的个数，原图片可插入信息的个数
+
     def init_block_index(self):
-        self.length = self.ca_block_shape[0] * self.ca_block_shape[1]
-        assert self.wm_size < self.length, IndexError(
-            '最多可嵌入{}kb信息，水印含{}kb信息，溢出'.format(self.length / 1000, self.wm_size / 1000))
+        self.block_num = self.ca_block_shape[0] * self.ca_block_shape[1]
+        assert self.wm_size < self.block_num, IndexError(
+            '最多可嵌入{}kb信息，水印含{}kb信息，溢出'.format(self.block_num / 1000, self.wm_size / 1000))
         # self.part_shape 是取整后的ca二维大小,用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = self.ca_block_shape[:2] * self.block_shape
         self.block_index = [(i, j) for i in range(self.ca_block_shape[0]) for j in range(self.ca_block_shape[1])]
@@ -47,7 +49,6 @@ class WaterMark:
             # 转为4维度
             self.ca_block[channel] = np.lib.stride_tricks.as_strided(self.ca[channel].astype(np.float32),
                                                                      self.ca_block_shape, strides)
-
 
     def read_img_wm(self, filename):
         # 读入图片格式的水印，并转为一维 bit 格式
@@ -83,14 +84,13 @@ class WaterMark:
         block_dct_flatten[index] = block_dct_flatten.copy()
         return cv2.idct(block_dct_flatten.reshape(self.block_shape))
 
-
     def embed(self, filename):
         self.init_block_index()
 
         self.random_dct = np.random.RandomState(self.password_img)
         index = np.arange(self.block_shape[0] * self.block_shape[1])
 
-        for i in range(self.length):
+        for i in range(self.block_num):
             block_idx = self.block_index[i]
             self.random_dct.shuffle(index)
             for channel in range(3):
@@ -134,9 +134,9 @@ class WaterMark:
 
         self.random_dct = np.random.RandomState(self.password_img)
         index = np.arange(self.block_shape[0] * self.block_shape[1])
-        wm_extract = np.zeros(shape=(3, self.length))  # 3个channel，length 个分块提取的水印，全都记录下来
+        wm_extract = np.zeros(shape=(3, self.block_num))  # 3个channel，length 个分块提取的水印，全都记录下来
         wm = np.zeros(shape=self.wm_size)  # 最终提取的水印，是 wm_extract 循环嵌入+3个 channel 的平均
-        for i in range(self.length):
+        for i in range(self.block_num):
             self.random_dct.shuffle(index)
             for channel in range(3):
                 wm_extract[channel, i] = self.block_get_wm(self.ca_block[channel][self.block_index[i]], index)
