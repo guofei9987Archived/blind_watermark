@@ -6,25 +6,25 @@ from scipy.stats import pearsonr
 
 class WaterMark:
     def __init__(self, password_wm=1, password_img=1, mod=36, mod2=20, wm_shape=None, block_shape=(4, 4)):
-        self.block_shape = block_shape  # 2或4
+        self.block_shape = block_shape
         self.password_wm, self.password_img = password_wm, password_img  # 打乱水印和打乱原图分块的随机种子
         self.mod, self.mod2 = mod, mod2  # 用于嵌入算法的除数,mod/mod2 越大鲁棒性越强,但输出图片的失真越大
         self.wm_shape = wm_shape  # 水印的大小
+
+        self.ca, self.ca_block = [None]*3, [None]*3
 
     def init_block_index(self):
         # 四维分块后的前2个维度：
         block_shape0, block_shape1 = self.ha_block_shape[0], self.ha_block_shape[1]
         self.length = block_shape0 * block_shape1
         print('最多可嵌入{}kb信息，水印含{}kb信息'.format(self.length / 1000, self.wm_size / 1000))
-        if self.wm_size > self.length:
-            print("水印的大小超过图片的容量")
+        assert self.wm_size > self.length, IndexError('水印大小超过图片的容量')
         # self.part_shape 是取整后的ha二维大小,用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = (block_shape0 * self.block_shape[0], block_shape1 * self.block_shape[1])
         self.block_index = [(i, j) for i in range(block_shape0) for j in range(block_shape1)]
 
     def read_img(self, filename):
         self.img = cv2.imread(filename).astype(np.float32)
-
         self.img_shape = self.img.shape[:2]
         self.img_YUV = cv2.cvtColor(self.img, cv2.COLOR_BGR2YUV)
 
@@ -33,6 +33,14 @@ class WaterMark:
                                           0, self.img_YUV.shape[0] % 2, 0, self.img_YUV.shape[1] % 2,
                                           cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
+        self.ha_shape = [(i + 1) // 2 for i in self.img_shape]
+        self.ha_block_shape = (self.ha_shape[0] // self.block_shape[0], self.ha_shape[1] // self.block_shape[1],
+                               self.block_shape[0], self.block_shape[1])
+        strides = 4 * np.array([self.ha_shape[1] * self.block_shape[0], self.block_shape[1], self.ha_shape[1], 1])
+
+        # for channel in range(3):
+        #     self.ha
+
         self.ha_Y, self.coeffs_Y = dwt2(self.img_YUV[:, :, 0], 'haar')
         self.ha_U, self.coeffs_U = dwt2(self.img_YUV[:, :, 1], 'haar')
         self.ha_V, self.coeffs_V = dwt2(self.img_YUV[:, :, 2], 'haar')
@@ -40,11 +48,7 @@ class WaterMark:
         self.ha_U = self.ha_U.astype(np.float32)
         self.ha_V = self.ha_V.astype(np.float32)
 
-        self.ha_shape = self.ha_Y.shape
         # 转换成4维分块
-        self.ha_block_shape = (self.ha_shape[0] // self.block_shape[0], self.ha_shape[1] // self.block_shape[1],
-                               self.block_shape[0], self.block_shape[1])
-        strides = 4 * np.array([self.ha_shape[1] * self.block_shape[0], self.block_shape[1], self.ha_shape[1], 1])
         self.ha_Y_block = np.lib.stride_tricks.as_strided(self.ha_Y.copy(), self.ha_block_shape, strides)
         self.ha_U_block = np.lib.stride_tricks.as_strided(self.ha_U.copy(), self.ha_block_shape, strides)
         self.ha_V_block = np.lib.stride_tricks.as_strided(self.ha_V.copy(), self.ha_block_shape, strides)
@@ -71,10 +75,7 @@ class WaterMark:
         self.random_wm.shuffle(self.wm_bit)
 
     def block_add_wm(self, block, index, i):
-
-        i = i % self.wm_size
-
-        wm_1 = self.wm_bit[i]
+        wm_1 = self.wm_bit[i % self.wm_size]
         block_dct = cv2.dct(block)
 
         # 加密（打乱顺序）
@@ -104,13 +105,11 @@ class WaterMark:
         index = np.arange(self.block_shape[0] * self.block_shape[1])
 
         for i in range(self.length):
+            block_idx = self.block_index[i]
             self.random_dct.shuffle(index)
-            embed_ha_Y_block[self.block_index[i]] = self.block_add_wm(
-                embed_ha_Y_block[self.block_index[i]], index, i)
-            embed_ha_U_block[self.block_index[i]] = self.block_add_wm(
-                embed_ha_U_block[self.block_index[i]], index, i)
-            embed_ha_V_block[self.block_index[i]] = self.block_add_wm(
-                embed_ha_V_block[self.block_index[i]], index, i)
+            embed_ha_Y_block[block_idx] = self.block_add_wm(embed_ha_Y_block[block_idx], index, i)
+            embed_ha_U_block[block_idx] = self.block_add_wm(embed_ha_U_block[block_idx], index, i)
+            embed_ha_V_block[block_idx] = self.block_add_wm(embed_ha_V_block[block_idx], index, i)
 
         embed_ha_Y_part = np.concatenate(np.concatenate(embed_ha_Y_block, 1), 1)
         embed_ha_U_part = np.concatenate(np.concatenate(embed_ha_U_block, 1), 1)
@@ -135,8 +134,7 @@ class WaterMark:
         embed_img_YUV = embed_img_YUV[:self.img_shape[0], :self.img_shape[1]]
         embed_img = cv2.cvtColor(embed_img_YUV, cv2.COLOR_YUV2BGR)
 
-        embed_img[embed_img > 255] = 255
-        embed_img[embed_img < 0] = 0
+        embed_img = np.clip(embed_img, a_min=0, a_max=255)
 
         cv2.imwrite(filename, embed_img)
 
@@ -176,6 +174,7 @@ class WaterMark:
         index = np.arange(self.block_shape[0] * self.block_shape[1])
         for i in range(self.length):
             self.random_dct.shuffle(index)
+
             wm_Y = self.block_get_wm(self.ha_Y_block[self.block_index[i]], index)
             wm_U = self.block_get_wm(self.ha_U_block[self.block_index[i]], index)
             wm_V = self.block_get_wm(self.ha_V_block[self.block_index[i]], index)
