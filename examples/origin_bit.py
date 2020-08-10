@@ -21,4 +21,4 @@ bwm1 = WaterMark(password_img=1, password_wm=1, wm_shape=6)
 wm_extract = bwm1.extract('output/打上水印的图.png', mode='bit')
 print(wm_extract)
 
-assert np.all(wm == (wm_extract > 0)), '提取水印和原水印不一致'
+assert np.all(wm == (wm_extract > 0.5)), '提取水印和原水印不一致'

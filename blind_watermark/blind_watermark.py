@@ -90,15 +90,14 @@ class WaterMark:
         self.random_dct = np.random.RandomState(self.password_img)
         index = np.arange(self.block_shape[0] * self.block_shape[1])
 
-        for i in range(self.block_num):
-            block_idx = self.block_index[i]
-            self.random_dct.shuffle(index)
-            for channel in range(3):
-                self.ca_block[channel][block_idx] = self.block_add_wm(self.ca_block[channel][block_idx], index, i)
-
         embed_ca = copy.deepcopy(self.ca)
         embed_YUV = [np.array([])] * 3
         for channel in range(3):
+            for i in range(self.block_num):
+                block_idx = self.block_index[i]
+                self.random_dct.shuffle(index)
+                self.ca_block[channel][block_idx] = self.block_add_wm(self.ca_block[channel][block_idx], index, i)
+
             # 4维分块变2维
             self.ca_part[channel] = np.concatenate(np.concatenate(self.ca_block[channel], 1), 1)
             # 4维分块时右边和下边不能整除的长条保留，其余是主体部分，换成 embed 之后的频域的数据
@@ -136,9 +135,9 @@ class WaterMark:
         index = np.arange(self.block_shape[0] * self.block_shape[1])
         wm_extract = np.zeros(shape=(3, self.block_num))  # 3个channel，length 个分块提取的水印，全都记录下来
         wm = np.zeros(shape=self.wm_size)  # 最终提取的水印，是 wm_extract 循环嵌入+3个 channel 的平均
-        for i in range(self.block_num):
-            self.random_dct.shuffle(index)
-            for channel in range(3):
+        for channel in range(3):
+            for i in range(self.block_num):
+                self.random_dct.shuffle(index)
                 wm_extract[channel, i] = self.block_get_wm(self.ca_block[channel][self.block_index[i]], index)
 
         for i in range(self.wm_size):
