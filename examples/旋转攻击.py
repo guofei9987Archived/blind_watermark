@@ -7,5 +7,5 @@ att.rot_att('output/旋转攻击.png', 'output/旋转攻击_还原.png', angle=-
 # %%提取水印
 from blind_watermark import WaterMark
 
-bwm1 = WaterMark(4399, 2333, 36, 20, wm_shape=(128, 128))
+bwm1 = WaterMark(password_wm=1, password_img=1, wm_shape=(128, 128))
 bwm1.extract("output/旋转攻击_还原.png", "output/旋转攻击_提取水印.png")

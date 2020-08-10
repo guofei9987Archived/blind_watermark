@@ -7,7 +7,7 @@
 ```python
 from blind_watermark import WaterMark
 
-bwm1 = WaterMark(4399, 2333, 36, 20)
+bwm1 = WaterMark(password_wm=1, password_img=1)
 
 # 读取原图
 bwm1.read_ori_img('pic/原图.jpg')
@@ -67,7 +67,7 @@ wm = [True, False, True, True, True, False]
 # 除了嵌入图片，也可以嵌入比特类数据
 from blind_watermark import WaterMark
 
-bwm1 = WaterMark(4399, 2333)
+bwm1 = WaterMark(password_img=1, password_wm=1)
 bwm1.read_ori_img('pic/原图.jpg')
 bwm1.read_wm([True, False, True, True, True, False], mode='bit')
 bwm1.embed('output/打上水印的图.png')
@@ -75,7 +75,7 @@ bwm1.embed('output/打上水印的图.png')
 
 解水印：（注意设定水印形状 `wm_shape`）
 ```python
-bwm1 = WaterMark(4399, 2333, wm_shape=6)
+bwm1 = WaterMark(password_img=1, password_wm=1, wm_shape=6)
 wm_extract = bwm1.extract('output/打上水印的图.png', mode='bit')
 print(wm_extract)
 ```

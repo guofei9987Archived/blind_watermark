@@ -7,5 +7,5 @@ att.bright_att('output/打上水印的图.png', 'output/亮度调低攻击.png',
 #%% 提取水印
 from blind_watermark import WaterMark
 
-bwm1 = WaterMark(4399, 2333, 36, 20, wm_shape=(128, 128))
+bwm1 = WaterMark(password_wm=1, password_img=1, wm_shape=(128, 128))
 bwm1.extract('output/亮度调低攻击.png', 'output/亮度调低攻击_提取水印.png')
