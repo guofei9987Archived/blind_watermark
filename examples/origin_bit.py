@@ -1,13 +1,15 @@
 # 除了嵌入图片，也可以嵌入比特类数据
+import numpy as np
 from blind_watermark import WaterMark
 
 bwm1 = WaterMark(password_img=1, password_wm=1)
 
 # 读取原图
-bwm1.read_ori_img('pic/原图.jpg')
+bwm1.read_img('pic/原图.jpg')
 
 # 读取水印
-bwm1.read_wm([True, False, True, True, True, False], mode='bit')
+wm = [True, False, True, True, True, False]
+bwm1.read_wm(wm, mode='bit')
 
 # 打上盲水印
 bwm1.embed('output/打上水印的图.png')
@@ -18,3 +20,5 @@ bwm1.embed('output/打上水印的图.png')
 bwm1 = WaterMark(password_img=1, password_wm=1, wm_shape=6)
 wm_extract = bwm1.extract('output/打上水印的图.png', mode='bit')
 print(wm_extract)
+
+assert np.all(wm == (wm_extract > 0)), '提取水印和原水印不一致'
