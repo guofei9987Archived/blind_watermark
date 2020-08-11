@@ -86,16 +86,16 @@ class WaterMark:
     def embed(self, filename):
         self.init_block_index()
 
-        self.random_dct = np.random.RandomState(self.password_img)
-        index = np.arange(self.block_shape[0] * self.block_shape[1])
-
         embed_ca = copy.deepcopy(self.ca)
         embed_YUV = [np.array([])] * 3
+        self.idx_shuffle = np.random.RandomState(self.password_img) \
+            .random(size=(self.block_num, self.block_shape[0] * self.block_shape[1])) \
+            .argsort(axis=1)
         for channel in range(3):
             for i in range(self.block_num):
                 block_idx = self.block_index[i]
-                self.random_dct.shuffle(index)
-                self.ca_block[channel][block_idx] = self.block_add_wm(self.ca_block[channel][block_idx], index, i)
+                self.ca_block[channel][block_idx] = self.block_add_wm(self.ca_block[channel][block_idx],
+                                                                      self.idx_shuffle[i], i)
 
             # 4维分块变2维
             self.ca_part[channel] = np.concatenate(np.concatenate(self.ca_block[channel], 1), 1)
@@ -126,18 +126,19 @@ class WaterMark:
 
     def extract(self, filename, out_wm_name=None, mode='img'):
         assert self.wm_shape, 'wm_shape（水印形状）未指定'
-        self.wm_size = np.prod(self.wm_shape)
+        self.wm_size = self.wm_shape[0] * self.wm_shape[1] if len(self.wm_shape) > 1 else self.wm_shape
         self.read_img(filename)
         self.init_block_index()
 
-        self.random_dct = np.random.RandomState(self.password_img)
-        index = np.arange(self.block_shape[0] * self.block_shape[1])
         wm_extract = np.zeros(shape=(3, self.block_num))  # 3个channel，length 个分块提取的水印，全都记录下来
         wm = np.zeros(shape=self.wm_size)  # 最终提取的水印，是 wm_extract 循环嵌入+3个 channel 的平均
+        self.idx_shuffle = np.random.RandomState(self.password_img) \
+            .random(size=(self.block_num, self.block_shape[0] * self.block_shape[1])) \
+            .argsort(axis=1)
         for channel in range(3):
             for i in range(self.block_num):
-                self.random_dct.shuffle(index)
-                wm_extract[channel, i] = self.block_get_wm(self.ca_block[channel][self.block_index[i]], index)
+                wm_extract[channel, i] = self.block_get_wm(self.ca_block[channel][self.block_index[i]],
+                                                           self.idx_shuffle[i])
 
         for i in range(self.wm_size):
             wm[i] = wm_extract[:, i::self.wm_size].mean()
