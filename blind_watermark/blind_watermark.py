@@ -22,7 +22,7 @@ class WaterMark:
     def init_block_index(self):
         self.block_num = self.ca_block_shape[0] * self.ca_block_shape[1]
         assert self.wm_size < self.block_num, IndexError(
-            '最多可嵌入{}kb信息，水印含{}kb信息，溢出'.format(self.block_num / 1000, self.wm_size / 1000))
+            '最多可嵌入{}kb信息，多于水印的{}kb信息，溢出'.format(self.block_num / 1000, self.wm_size / 1000))
         # self.part_shape 是取整后的ca二维大小,用于嵌入时忽略右边和下面对不齐的细条部分。
         self.part_shape = self.ca_block_shape[:2] * self.block_shape
         self.block_index = [(i, j) for i in range(self.ca_block_shape[0]) for j in range(self.ca_block_shape[1])]
@@ -31,11 +31,10 @@ class WaterMark:
         # 读入图片->YUV化->加白边使像素变偶数->四维分块
         self.img = cv2.imread(filename).astype(np.float32)
         self.img_shape = self.img.shape[:2]
-        self.img_YUV = cv2.cvtColor(self.img, cv2.COLOR_BGR2YUV)
 
         # 如果不是偶数，那么补上白边
-        self.img_YUV = cv2.copyMakeBorder(self.img_YUV,
-                                          0, self.img_YUV.shape[0] % 2, 0, self.img_YUV.shape[1] % 2,
+        self.img_YUV = cv2.copyMakeBorder(cv2.cvtColor(self.img, cv2.COLOR_BGR2YUV),
+                                          0, self.img.shape[0] % 2, 0, self.img.shape[1] % 2,
                                           cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
         self.ca_shape = [(i + 1) // 2 for i in self.img_shape]
