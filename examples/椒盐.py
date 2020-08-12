@@ -9,5 +9,6 @@ att.salt_pepper_att('output/打上水印的图.png', 'output/椒盐攻击.png', 
 # %%纵向裁剪打击.png
 from blind_watermark import WaterMark
 
-bwm1 = WaterMark(password_wm=1, password_img=1, wm_shape=(128, 128))
-bwm1.extract('output/椒盐攻击.png', 'output/椒盐攻击_提取水印.png')
+bwm1 = WaterMark(password_wm=1, password_img=1)
+bwm1.extract(filename='output/椒盐攻击.png', wm_shape=(128, 128), out_wm_name='output/椒盐攻击_提取水印.png')
+

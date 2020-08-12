@@ -7,5 +7,5 @@ att.resize_att('output/缩放攻击.png', 'output/缩放攻击_还原.png', out_
 # %%提取水印
 from blind_watermark import WaterMark
 
-bwm1 = WaterMark(password_wm=1, password_img=1, wm_shape=(128, 128))
-bwm1.extract("output/缩放攻击_还原.png", "output/缩放攻击_提取水印.png")
+bwm1 = WaterMark(password_wm=1, password_img=1)
+bwm1.extract(filename="output/缩放攻击_还原.png", wm_shape=(128, 128), out_wm_name="output/缩放攻击_提取水印.png")

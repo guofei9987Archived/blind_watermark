@@ -2,22 +2,23 @@ import numpy as np
 import copy
 import cv2
 from pywt import dwt2, idwt2
+from multiprocessing.dummy import Pool as ThreadPool
 
 
 class WaterMark:
-    def __init__(self, password_wm=1, password_img=1, mod=36, mod2=20, wm_shape=None, block_shape=(4, 4)):
+    def __init__(self, password_wm=1, password_img=1, block_shape=(4, 4), cores=None):
         self.block_shape = np.array(block_shape)
         self.password_wm, self.password_img = password_wm, password_img  # 打乱水印和打乱原图分块的随机种子
-        self.mod, self.mod2 = mod, mod2  # 用于嵌入算法的除数,mod/mod2 越大鲁棒性越强,但输出图片的失真越大
-        self.wm_shape = wm_shape  # 水印的大小
+        self.d1, self.d2 = 36, 20  # d1/d2 越大鲁棒性越强,但输出图片的失真越大
 
         # init data
-        self.img, self.img_YUV = None, None  # self.img 是原图，self.img_YUV 对像素做了偶数化（加白）
+        self.img, self.img_YUV = None, None  # self.img 是原图，self.img_YUV 对像素做了加白偶数化
         self.ca, self.hvd, = [np.array([])] * 3, [np.array([])] * 3  # 每个通道 dct 的结果
         self.ca_block = [np.array([])] * 3  # 每个 channel 存一个四维 array，代表四维分块后的结果
         self.ca_part = [np.array([])] * 3  # 四维分块后，有时因不整除而少一部分，self.ca_part 是少这一部分的 self.ca
 
-        self.wm_size, self.block_num = 0, 0  # 水印的个数，原图片可插入信息的个数
+        self.wm_size, self.block_num = 0, 0  # 水印的长度，原图片可插入信息的个数
+        self.pool = ThreadPool(processes=cores)  # 水印插入分块多进程
 
     def init_block_index(self):
         self.block_num = self.ca_block_shape[0] * self.ca_block_shape[1]
@@ -52,8 +53,6 @@ class WaterMark:
     def read_img_wm(self, filename):
         # 读入图片格式的水印，并转为一维 bit 格式
         self.wm = cv2.imread(filename)[:, :, 0]
-        self.wm_shape = self.wm.shape[:2]
-
         # 加密信息只用bit类，抛弃灰度级别
         self.wm_bit = self.wm.flatten() > 128
 
@@ -64,23 +63,23 @@ class WaterMark:
             self.wm_bit = np.array(wm_content)
         self.wm_size = self.wm_bit.size
         # 水印加密:
-        self.random_wm = np.random.RandomState(self.password_wm)
-        self.random_wm.shuffle(self.wm_bit)
+        np.random.RandomState(self.password_wm).shuffle(self.wm_bit)
 
-    def block_add_wm(self, block, index, i):
+    def block_add_wm(self, arg):
+        block, shuffler, i = arg
         # dct->flatten->加密->逆flatten->svd->打水印->逆svd->逆dct
         wm_1 = self.wm_bit[i % self.wm_size]
         block_dct = cv2.dct(block)
 
         # 加密（打乱顺序）
-        block_dct_shuffled = block_dct.flatten()[index].reshape(self.block_shape)
+        block_dct_shuffled = block_dct.flatten()[shuffler].reshape(self.block_shape)
         U, s, V = np.linalg.svd(block_dct_shuffled)
-        s[0] = (s[0] // self.mod + 1 / 4 + 1 / 2 * wm_1) * self.mod
-        if self.mod2:
-            s[1] = (s[1] // self.mod2 + 1 / 4 + 1 / 2 * wm_1) * self.mod2
+        s[0] = (s[0] // self.d1 + 1 / 4 + 1 / 2 * wm_1) * self.d1
+        if self.d2:
+            s[1] = (s[1] // self.d2 + 1 / 4 + 1 / 2 * wm_1) * self.d2
 
         block_dct_flatten = np.dot(U, np.dot(np.diag(s), V)).flatten()
-        block_dct_flatten[index] = block_dct_flatten.copy()
+        block_dct_flatten[shuffler] = block_dct_flatten.copy()
         return cv2.idct(block_dct_flatten.reshape(self.block_shape))
 
     def embed(self, filename):
@@ -91,13 +90,16 @@ class WaterMark:
         self.idx_shuffle = np.random.RandomState(self.password_img) \
             .random(size=(self.block_num, self.block_shape[0] * self.block_shape[1])) \
             .argsort(axis=1)
-        for channel in range(3):
-            for i in range(self.block_num):
-                block_idx = self.block_index[i]
-                self.ca_block[channel][block_idx] = self.block_add_wm(self.ca_block[channel][block_idx],
-                                                                      self.idx_shuffle[i], i)
 
-            # 4维分块变2维
+        for channel in range(3):
+            tmp = self.pool.map(self.block_add_wm,
+                                [(self.ca_block[channel][self.block_index[i]], self.idx_shuffle[i], i)
+                                 for i in range(self.block_num)])
+
+            for i in range(self.block_num):
+                self.ca_block[channel][self.block_index[i]] = tmp[i]
+
+            # 4维分块变回2维
             self.ca_part[channel] = np.concatenate(np.concatenate(self.ca_block[channel], 1), 1)
             # 4维分块时右边和下边不能整除的长条保留，其余是主体部分，换成 embed 之后的频域的数据
             embed_ca[channel][:self.part_shape[0], :self.part_shape[1]] = self.ca_part[channel]
@@ -113,20 +115,20 @@ class WaterMark:
         cv2.imwrite(filename, embed_img)
         return embed_img
 
-    def block_get_wm(self, block, index):
+    def block_get_wm(self, args):
+        block, shuffler = args
         # dct->flatten->加密->逆flatten->svd->解水印
-        block_dct_shuffled = cv2.dct(block).flatten()[index].reshape(self.block_shape)
+        block_dct_shuffled = cv2.dct(block).flatten()[shuffler].reshape(self.block_shape)
 
         U, s, V = np.linalg.svd(block_dct_shuffled)
-        wm = (s[0] % self.mod > self.mod / 2) * 1
-        if self.mod2:
-            tmp = (s[1] % self.mod2 > self.mod2 / 2) * 1
+        wm = (s[0] % self.d1 > self.d1 / 2) * 1
+        if self.d2:
+            tmp = (s[1] % self.d2 > self.d2 / 2) * 1
             wm = (wm * 3 + tmp * 1) / 4
         return wm
 
-    def extract(self, filename, out_wm_name=None, mode='img'):
-        assert self.wm_shape, 'wm_shape（水印形状）未指定'
-        self.wm_size = self.wm_shape[0] * self.wm_shape[1] if len(self.wm_shape) > 1 else self.wm_shape
+    def extract(self, filename, wm_shape, out_wm_name=None, mode='img'):
+        self.wm_size = np.array(wm_shape).prod()
         self.read_img(filename)
         self.init_block_index()
 
@@ -136,9 +138,9 @@ class WaterMark:
             .random(size=(self.block_num, self.block_shape[0] * self.block_shape[1])) \
             .argsort(axis=1)
         for channel in range(3):
-            for i in range(self.block_num):
-                wm_extract[channel, i] = self.block_get_wm(self.ca_block[channel][self.block_index[i]],
-                                                           self.idx_shuffle[i])
+            wm_extract[channel, :] = self.pool.map(self.block_get_wm,
+                                                   [(self.ca_block[channel][self.block_index[i]], self.idx_shuffle[i])
+                                                    for i in range(self.block_num)])
 
         for i in range(self.wm_size):
             wm[i] = wm_extract[:, i::self.wm_size].mean()
@@ -149,5 +151,5 @@ class WaterMark:
         wm[wm_index] = wm.copy()
 
         if mode == 'img':
-            cv2.imwrite(out_wm_name, 255 * wm.reshape(self.wm_shape[0], self.wm_shape[1]))
+            cv2.imwrite(out_wm_name, 255 * wm.reshape(wm_shape[0], wm_shape[1]))
         return wm
